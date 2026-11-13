@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Spud Survivor - Nightmare Boss Edition (Nerfed Upgrades)</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #12121e;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      user-select: none;
+    }
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      font-size: 17px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+    }
+    .bar-container {
+      width: 220px;
+      height: 16px;
+      background: #2b2d42;
+      border: 2px solid #fff;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 3px;
+      margin-bottom: 7px;
+    }
+    #hp-bar {
+      width: 100%;
+      height: 100%;
+      background: #e63946;
+      transition: width 0.1s;
+    }
+    #xp-bar {
+      width: 0%;
+      height: 100%;
+      background: #4cc9f0;
+      transition: width 0.1s;
+    }
+    #wave-timer {
+      font-size: 36px;
+      color: #ffd166;
+    }
+    #boss-hud {
+      position: absolute;
+      top: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      text-shadow: 2px 2px 4px #000;
+    }
+    #boss-name {
+      color: #ff4d6d;
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+    #boss-bar-container {
+      width: 420px;
+      height: 20px;
+      background: #220011;
+      border: 2px solid #ff4d6d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #boss-hp-bar {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #c9184a, #ff4d6d);
+      transition: width 0.1s;
+    }
+    #banner-alert {
+      position: absolute;
+      top: 145px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 26px;
+      font-weight: bold;
+      color: #ffbe0b;
+      text-shadow: 0 0 10px #ff006e;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .overlay-screen {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 10, 18, 0.93);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    h1 { margin-bottom: 8px; color: #ffd166; font-size: 36px; }
+    .card-grid {
+      display: flex;
+      gap: 18px;
+      margin: 22px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 960px;
+    }
+    .card {
+      background: #232538;
+      border: 2px solid #8d99ae;
+      border-radius: 10px;
+      padding: 18px;
+      width: 185px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:hover {
+      transform: translateY(-6px);
+      border-color: #06d6a0;
+    }
+    .card h3 { margin: 0 0 8px 0; color: #06d6a0; font-size: 19px; }
+    .card p { font-size: 13px; color: #edf2f4; line-height: 1.35; }
+    .cost { font-weight: bold; color: #ffd166; margin-top: 10px; font-size: 15px; }
+    button {
+      padding: 14px 32px;
+      font-size: 18px;
+      font-weight: bold;
+      background: #06d6a0;
+      color: #12121e;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: #05b384; }
+  </style>
+</head>
+<body>
+
+  <div id="hud">
+    <div>
+      <div>HP: <span id="hp-text">85/85</span> | Armor: <span id="armor-text" style="color:#adb5bd;">0</span></div>
+      <div class="bar-container"><div id="hp-bar"></div></div>
+
+      <div>LEVEL <span id="lvl-text" style="color:#4cc9f0;">1</span> (<span id="xp-text">0/25</span> XP)</div>
+      <div class="bar-container"><div id="xp-bar"></div></div>
+
+      <div style="color: #06d6a0;">Materials: <span id="mat-text">0</span></div>
+    </div>
+
+    <div style="text-align: center;">
+      <div style="color:#ff4d6d;">NIGHTMARE WAVE <span id="wave-num">1</span></div>
+      <div id="wave-timer">25</div>
+    </div>
+
+    <div style="text-align: right;">
+      <div>Weapons: <span id="weapon-count">1</span>/6</div>
+      <div>Enemies Alive: <span id="enemy-count" style="color:#e63946;">0</span></div>
+      <div>Total Kills: <span id="kill-count">0</span></div>
+    </div>
+  </div>
+
+  <div id="boss-hud">
+    <div id="boss-name">OVERLORD SPUD CRUSHER</div>
+    <div id="boss-bar-container"><div id="boss-hp-bar"></div></div>
+  </div>
+
+  <div id="banner-alert">MINI-BOSS INCOMING!</div>
+
+  <!-- LEVEL UP SCREEN -->
+  <div id="levelup-screen" class="overlay-screen">
+    <h1 style="color: #4cc9f0;">LEVEL UP!</h1>
+    <p>Choose a minor stat boost:</p>
+    <div class="card-grid" id="levelup-choices"></div>
+  </div>
+
+  <!-- END OF WAVE SHOP -->
+  <div id="shop-screen" class="overlay-screen">
+    <h1>WAVE SURVIVED!</h1>
+    <p>Materials Available: <span id="shop-mat" style="color:#06d6a0; font-weight:bold;">0</span></p>
+    <div class="card-grid" id="shop-items"></div>
+    <button id="next-wave-btn">START WAVE <span id="next-wave-num">2</span></button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameover-screen" class="overlay-screen">
+    <h1 style="color: #e63946;">YOU GOT OBLITERATED!</h1>
+    <p id="final-stats" style="font-size: 22px; margin-bottom: 24px;"></p>
+    <button onclick="location.reload()">TRY AGAIN</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // --- GAME STATE ---
+    const state = {
+      hp: 85,
+      maxHp: 85,
+      armor: 0,
+      hpRegen: 0.25,
+      speed: 0.23,
+      damage: 14,
+      fireRate: 0.46,
+      pickupRange: 6.0,
+      weapons: 1,
+      level: 1,
+      xp: 0,
+      xpToNext: 25,
+      materials: 0,
+      kills: 0,
+      wave: 1,
+      timeLeft: 25,
+      paused: false,
+      gameOver: false,
+      lastShot: 0,
+      miniBossSpawned: false,
+      waveBossSpawned: false
+    };
+
+    const ARENA_SIZE = 34;
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    // --- THREE.JS SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x12121e);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 38, 30);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.position.set(20, 42, 25);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(ARENA_SIZE * 2, ARENA_SIZE * 2),
+      new THREE.MeshStandardMaterial({ color: 0x1e1e2f })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    scene.add(new THREE.GridHelper(ARENA_SIZE * 2, 34, 0x4a2c40, 0x2b2b40));
+
+    // --- PLAYER (POTATO) ---
+    const playerGroup = new THREE.Group();
+    const potatoGeo = new THREE.SphereGeometry(1.1, 16, 16);
+    potatoGeo.scale(1, 1.35, 0.95);
+    const potatoMesh = new THREE.Mesh(potatoGeo, new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.8 }));
+    potatoMesh.position.y = 1.3;
+    potatoMesh.castShadow = true;
+    playerGroup.add(potatoMesh);
+
+    const eyeGeo = new THREE.SphereGeometry(0.18, 8, 8);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    leftEye.position.set(-0.35, 1.6, 0.9);
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    rightEye.position.set(0.35, 1.6, 0.9);
+    playerGroup.add(leftEye, rightEye);
+    scene.add(playerGroup);
+
+    const weaponMeshes = [];
+    function updateWeaponVisuals() {
+      weaponMeshes.forEach(w => playerGroup.remove(w));
+      weaponMeshes.length = 0;
+      const geo = new THREE.BoxGeometry(0.35, 0.35, 1.15);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xadb5bd, metalness: 0.7 });
+      for (let i = 0; i < state.weapons; i++) {
+        const angle = (i / state.weapons) * Math.PI * 2;
+        const w = new THREE.Mesh(geo, mat);
+        w.position.set(Math.cos(angle) * 2.2, 1.3, Math.sin(angle) * 2.2);
+        w.rotation.y = -angle;
+        playerGroup.add(w);
+        weaponMeshes.push(w);
+      }
+      document.getElementById('weapon-count').innerText = state.weapons;
+    }
+    updateWeaponVisuals();
+
+    // --- ENTITIES ---
+    const enemies = [];
+    const bullets = [];
+    const enemyBullets = [];
+    const gems = [];
+    let activeBigBoss = null;
+
+    const geoSwarmer = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    const matSwarmer = new THREE.MeshStandardMaterial({ color: 0xe63946 });
+
+    const geoFast = new THREE.ConeGeometry(0.7, 1.4, 6);
+    const matFast = new THREE.MeshStandardMaterial({ color: 0xf77f00 });
+
+    const geoCharger = new THREE.TetrahedronGeometry(1.1);
+    const matCharger = new THREE.MeshStandardMaterial({ color: 0xffbe0b });
+
+    const geoRanged = new THREE.OctahedronGeometry(0.95);
+    const matRanged = new THREE.MeshStandardMaterial({ color: 0x00bbf9 });
+
+    const geoMiniBoss = new THREE.DodecahedronGeometry(2.2);
+    const matMiniBoss = new THREE.MeshStandardMaterial({ color: 0xff006e, emissive: 0x44001d });
+
+    const geoBigBoss = new THREE.IcosahedronGeometry(3.8, 1);
+    const matBigBoss = new THREE.MeshStandardMaterial({ color: 0x7209b7, emissive: 0x240046, roughness: 0.3 });
+
+    function showBanner(text) {
+      const el = document.getElementById('banner-alert');
+      el.innerText = text;
+      el.style.opacity = 1;
+      setTimeout(() => { el.style.opacity = 0; }, 2500);
+    }
+
+    function getEdgeSpawnPos() {
+      const side = Math.floor(Math.random() * 4);
+      const bound = ARENA_SIZE - 2;
+      if (side === 0) return { x: (Math.random() * 2 - 1) * bound, z: -bound };
+      if (side === 1) return { x: (Math.random() * 2 - 1) * bound, z: bound };
+      if (side === 2) return { x: -bound, z: (Math.random() * 2 - 1) * bound };
+      return { x: bound, z: (Math.random() * 2 - 1) * bound };
+    }
+
+    function spawnHordeCluster() {
+      const clusterSize = Math.min(12, 3 + Math.floor(state.wave * 1.2));
+      const base = getEdgeSpawnPos();
+      const bound = ARENA_SIZE - 1.5;
+      const scaleMult = Math.pow(1.24, state.wave - 1);
+
+      for (let i = 0; i < clusterSize; i++) {
+        if (enemies.length >= 200) break;
+
+        const x = Math.max(-bound, Math.min(bound, base.x + (Math.random() - 0.5) * 6));
+        const z = Math.max(-bound, Math.min(bound, base.z + (Math.random() - 0.5) * 6));
+
+        const roll = Math.random();
+        let type = 'swarmer';
+        if (roll < 0.25) type = 'fast';
+        else if (state.wave >= 2 && roll < 0.45) type = 'charger';
+        else if (state.wave >= 2 && roll < 0.65) type = 'ranged';
+
+        let mesh, hp, speed, damage, radius, xpVal;
+
+        if (type === 'fast') {
+          mesh = new THREE.Mesh(geoFast, matFast);
+          mesh.position.set(x, 0.7, z);
+          hp = 18 * scaleMult;
+          speed = 0.21 + state.wave * 0.006;
+          damage = 12 * scaleMult;
+          radius = 0.75;
+          xpVal = 3;
+        } else if (type === 'charger') {
+          mesh = new THREE.Mesh(geoCharger, matCharger);
+          mesh.position.set(x, 1.0, z);
+          hp = 35 * scaleMult;
+          speed = 0.11;
+          damage = 18 * scaleMult;
+          radius = 1.0;
+          xpVal = 5;
+        } else if (type === 'ranged') {
+          mesh = new THREE.Mesh(geoRanged, matRanged);
+          mesh.position.set(x, 1.0, z);
+          hp = 28 * scaleMult;
+          speed = 0.10;
+          damage = 14 * scaleMult;
+          radius = 0.95;
+          xpVal = 4;
+        } else {
+          mesh = new THREE.Mesh(geoSwarmer, matSwarmer);
+          mesh.position.set(x, 0.6, z);
+          hp = 26 * scaleMult;
+          speed = 0.135 + state.wave * 0.005;
+          damage = 13 * scaleMult;
+          radius = 0.85;
+          xpVal = 3;
+        }
+
+        scene.add(mesh);
+        enemies.push({
+          mesh, type, hp, maxHp: hp, speed, damage, radius, xpVal,
+          shootTimer: Math.random() * 1.8,
+          chargeTimer: 1.5 + Math.random() * 2,
+          chargeDir: null,
+          chargeDuration: 0
+        });
+      }
+    }
+
+    function spawnMiniBoss() {
+      const pos = getEdgeSpawnPos();
+      const scaleMult = Math.pow(1.28, state.wave - 1);
+      const mesh = new THREE.Mesh(geoMiniBoss, matMiniBoss);
+      mesh.position.set(pos.x, 2.2, pos.z);
+      scene.add(mesh);
+
+      const hp = 320 * scaleMult;
+      enemies.push({
+        mesh,
+        type: 'miniboss',
+        hp,
+        maxHp: hp,
+        speed: 0.11 + state.wave * 0.003,
+        damage: 24 * scaleMult,
+        radius: 2.2,
+        xpVal: 25,
+        shootTimer: 1.0
+      });
+    }
+
+    function spawnWaveBoss() {
+      const scaleMult = Math.pow(1.32, state.wave - 1);
+      const mesh = new THREE.Mesh(geoBigBoss, matBigBoss);
+      mesh.position.set(0, 3.8, -ARENA_SIZE + 4);
+      scene.add(mesh);
+
+      const hp = 1500 * scaleMult;
+      const bossObj = {
+        mesh,
+        type: 'bigboss',
+        hp,
+        maxHp: hp,
+        speed: 0.085,
+        damage: 32 * scaleMult,
+        radius: 3.8,
+        xpVal: 80,
+        shootTimer: 0,
+        spiralAngle: 0,
+        summonTimer: 0
+      };
+      enemies.push(bossObj);
+      activeBigBoss = bossObj;
+
+      document.getElementById('boss-hud').style.display = 'flex';
+      document.getElementById('boss-name').innerText = `WAVE ${state.wave} COLOSSUS`;
+      updateBossBar();
+      showBanner("WARNING: COLOSSAL BOSS SPAWNED!");
+    }
+
+    function updateBossBar() {
+      if (!activeBigBoss) {
+        document.getElementById('boss-hud').style.display = 'none';
+        return;
+      }
+      const pct = Math.max(0, (activeBigBoss.hp / activeBigBoss.maxHp) * 100);
+      document.getElementById('boss-hp-bar').style.width = pct + '%';
+    }
+
+    const bulletGeo = new THREE.SphereGeometry(0.28, 6, 6);
+    const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+    function shootBullet(origin, targetPos) {
+      const mesh = new THREE.Mesh(bulletGeo, bulletMat);
+      mesh.position.copy(origin);
+      scene.add(mesh);
+      const dir = new THREE.Vector3().subVectors(targetPos, origin).setY(0).normalize();
+      bullets.push({ mesh, dir, life: 1.5 });
+    }
+
+    const enemyBulletMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+    const bossBulletGeo = new THREE.SphereGeometry(0.42, 8, 8);
+    function shootEnemyBullet(origin, dirVec, speed = 0.32, dmg = 14, isBoss = false) {
+      const mesh = new THREE.Mesh(isBoss ? bossBulletGeo : bulletGeo, enemyBulletMat);
+      mesh.position.set(origin.x, 1.2, origin.z);
+      scene.add(mesh);
+      enemyBullets.push({ mesh, dir: dirVec.clone().normalize(), speed, dmg, life: 3.5 });
+    }
+
+    const gemGeo = new THREE.OctahedronGeometry(0.42);
+    const gemMat = new THREE.MeshStandardMaterial({ color: 0x06d6a0, emissive: 0x025940 });
+    function spawnGem(pos, val) {
+      const count = val >= 20 ? 5 : 1;
+      const perGem = Math.ceil(val / count);
+      for (let i = 0; i < count; i++) {
+        const mesh = new THREE.Mesh(gemGeo, gemMat);
+        mesh.position.set(pos.x + (Math.random() - 0.5) * 2, 0.6, pos.z + (Math.random() - 0.5) * 2);
+        scene.add(mesh);
+        gems.push({ mesh, val: perGem });
+      }
+    }
+
+    function takeDamage(rawDamage) {
+      const mitigated = Math.max(1, rawDamage - state.armor);
+      state.hp -= mitigated;
+      checkGameOver();
+    }
+
+    // --- LEVEL UP SYSTEM (HEAVILY NERFED FOR SMALL STAT CHANGES) ---
+    const levelUpPool = [
+      { name: "+4 Max HP", desc: "Tiny boost to max HP (+4 HP).", apply: () => { state.maxHp += 4; state.hp = Math.min(state.maxHp, state.hp + 4); } },
+      { name: "+1 Bullet Damage", desc: "Slightly increases bullet damage.", apply: () => state.damage += 1 },
+      { name: "+3% Attack Speed", desc: "Tiny bump to firing rate.", apply: () => state.fireRate *= 0.97 },
+      { name: "+3% Move Speed", desc: "Slightly faster movement.", apply: () => state.speed *= 1.03 },
+      { name: "+0.15 HP Regen", desc: "Small trickle of health recovery.", apply: () => state.hpRegen += 0.15 },
+      { name: "+1 Armor", desc: "Reduces incoming damage by 1.", apply: () => state.armor += 1 },
+      { name: "+8% Magnet Range", desc: "Slightly wider gem pickup radius.", apply: () => state.pickupRange *= 1.08 }
+    ];
+
+    function triggerLevelUp() {
+      state.paused = true;
+      const screen = document.getElementById('levelup-screen');
+      const container = document.getElementById('levelup-choices');
+      container.innerHTML = '';
+
+      const shuffled = [...levelUpPool].sort(() => 0.5 - Math.random()).slice(0, 3);
+      shuffled.forEach(perk => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3 style="color:#4cc9f0;">${perk.name}</h3><p>${perk.desc}</p>`;
+        card.onclick = () => {
+          perk.apply();
+          updateHUD();
+          screen.style.display = 'none';
+          state.paused = false;
+        };
+        container.appendChild(card);
+      });
+
+      screen.style.display = 'flex';
+    }
+
+    // --- SHOP LOGIC (NERFED GAINS & STEEP COST SCALING) ---
+    const shopUpgrades = [
+      { name: "+1 Auto-Gun", desc: "Adds an orbiting gun (Max 6)", baseCost: 45, scale: 1.75, count: 0, apply: () => { if (state.weapons < 6) { state.weapons++; updateWeaponVisuals(); } } },
+      { name: "+1.5 Damage", desc: "Small damage increase", baseCost: 24, scale: 1.4, count: 0, apply: () => state.damage += 1.5 },
+      { name: "+4% Attack Speed", desc: "Small fire rate increase", baseCost: 26, scale: 1.4, count: 0, apply: () => state.fireRate *= 0.96 },
+      { name: "+6 Max HP & Heal 8", desc: "Minor survivability boost", baseCost: 22, scale: 1.35, count: 0, apply: () => { state.maxHp += 6; state.hp = Math.min(state.maxHp, state.hp + 8); } },
+      { name: "+1 Armor", desc: "Reduces damage taken by 1", baseCost: 30, scale: 1.5, count: 0, apply: () => state.armor += 1 },
+      { name: "+4% Move Speed", desc: "Small movement speed boost", baseCost: 22, scale: 1.35, count: 0, apply: () => state.speed *= 1.04 }
+    ];
+
+    function openShop() {
+      state.paused = true;
+      enemies.forEach(e => scene.remove(e.mesh));
+      enemies.length = 0;
+      activeBigBoss = null;
+      updateBossBar();
+
+      bullets.forEach(b => scene.remove(b.mesh));
+      bullets.length = 0;
+      enemyBullets.forEach(b => scene.remove(b.mesh));
+      enemyBullets.length = 0;
+
+      document.getElementById('next-wave-num').innerText = state.wave + 1;
+      document.getElementById('shop-screen').style.display = 'flex';
+      renderShop();
+    }
+
+    function renderShop() {
+      document.getElementById('shop-mat').innerText = state.materials;
+      const container = document.getElementById('shop-items');
+      container.innerHTML = '';
+
+      shopUpgrades.forEach(upg => {
+        if (upg.name.includes("Auto-Gun") && state.weapons >= 6) return;
+        const currentCost = Math.floor(upg.baseCost * Math.pow(upg.scale, upg.count));
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="cost">Cost: ${currentCost}</div>`;
+        card.onclick = () => {
+          if (state.materials >= currentCost) {
+            state.materials -= currentCost;
+            upg.count++;
+            upg.apply();
+            updateHUD();
+            renderShop();
+          }
+        };
+        container.appendChild(card);
+      });
+    }
+
+    document.getElementById('next-wave-btn').onclick = () => {
+      state.wave++;
+      state.timeLeft = 28 + (state.wave * 2);
+      state.miniBossSpawned = false;
+      state.waveBossSpawned = false;
+      state.paused = false;
+      playerGroup.position.set(0, 0, 0);
+      document.getElementById('shop-screen').style.display = 'none';
+      updateHUD();
+    };
+
+    function updateHUD() {
+      document.getElementById('hp-text').innerText = `${Math.ceil(state.hp)}/${state.maxHp}`;
+      document.getElementById('armor-text').innerText = state.armor;
+      document.getElementById('hp-bar').style.width = `${Math.max(0, (state.hp / state.maxHp) * 100)}%`;
+
+      document.getElementById('lvl-text').innerText = state.level;
+      document.getElementById('xp-text').innerText = `${state.xp}/${state.xpToNext}`;
+      document.getElementById('xp-bar').style.width = `${Math.min(100, (state.xp / state.xpToNext) * 100)}%`;
+
+      document.getElementById('mat-text').innerText = state.materials;
+      document.getElementById('wave-num').innerText = state.wave;
+      document.getElementById('enemy-count').innerText = enemies.length;
+      document.getElementById('kill-count').innerText = state.kills;
+    }
+
+    // --- MAIN GAME LOOP ---
+    let spawnAccumulator = 0;
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (state.paused || state.gameOver) {
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // Passive HP Regen
+      if (state.hp < state.maxHp) {
+        state.hp = Math.min(state.maxHp, state.hp + state.hpRegen * dt);
+      }
+
+      // Wave Timer & Boss Triggers
+      state.timeLeft -= dt;
+      document.getElementById('wave-timer').innerText = Math.max(0, Math.ceil(state.timeLeft));
+
+      // Spawn Giant Boss at start of every 3rd wave (Waves 3, 6, 9...)
+      if (state.wave % 3 === 0 && !state.waveBossSpawned) {
+        state.waveBossSpawned = true;
+        spawnWaveBoss();
+      }
+
+      // Spawn Mini-Bosses halfway through every wave
+      const halfTime = (28 + state.wave * 2) * 0.55;
+      if (state.timeLeft <= halfTime && !state.miniBossSpawned) {
+        state.miniBossSpawned = true;
+        const count = state.wave >= 4 ? 2 : 1;
+        for (let i = 0; i < count; i++) spawnMiniBoss();
+        showBanner(count > 1 ? "TWIN MINI-BOSSES INCOMING!" : "ELITE MINI-BOSS INCOMING!");
+      }
+
+      if (state.timeLeft <= 0) {
+        openShop();
+        return;
+      }
+
+      // Player Movement
+      let moveX = 0, moveZ = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+      if (moveX !== 0 || moveZ !== 0) {
+        const len = Math.hypot(moveX, moveZ);
+        playerGroup.position.x += (moveX / len) * state.speed;
+        playerGroup.position.z += (moveZ / len) * state.speed;
+        playerGroup.position.x = Math.max(-ARENA_SIZE + 1.5, Math.min(ARENA_SIZE - 1.5, playerGroup.position.x));
+        playerGroup.position.z = Math.max(-ARENA_SIZE + 1.5, Math.min(ARENA_SIZE - 1.5, playerGroup.position.z));
+        playerGroup.rotation.y = Math.atan2(moveX, moveZ);
+      }
+
+      // Camera Follow
+      camera.position.x += (playerGroup.position.x - camera.position.x) * 0.1;
+      camera.position.z += (playerGroup.position.z + 28 - camera.position.z) * 0.1;
+      camera.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
+
+      // Relentless Horde Spawning
+      spawnAccumulator += dt;
+      const spawnInterval = Math.max(0.35, 1.3 - (state.wave * 0.12));
+      if (spawnAccumulator >= spawnInterval) {
+        spawnAccumulator = 0;
+        spawnHordeCluster();
+      }
+
+      // Auto-Fire Weapons
+      state.lastShot += dt;
+      if (state.lastShot >= state.fireRate && enemies.length > 0) {
+        let nearest = null;
+        let minDist = 27;
+        for (let i = 0; i < enemies.length; i++) {
+          const d = playerGroup.position.distanceTo(enemies[i].mesh.position);
+          if (d < minDist) {
+            minDist = d;
+            nearest = enemies[i];
+          }
+        }
+
+        if (nearest) {
+          state.lastShot = 0;
+          weaponMeshes.forEach(w => {
+            const worldPos = new THREE.Vector3();
+            w.getWorldPosition(worldPos);
+            shootBullet(worldPos, nearest.mesh.position);
+          });
+        }
+      }
+
+      // Update Player Bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.mesh.position.addScaledVector(b.dir, 0.78);
+        b.life -= dt;
+
+        let hit = false;
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          if (b.mesh.position.distanceTo(e.mesh.position) < e.radius + 0.45) {
+            e.hp -= state.damage;
+            hit = true;
+            if (e === activeBigBoss) updateBossBar();
+
+            if (e.hp <= 0) {
+              spawnGem(e.mesh.position, e.xpVal);
+              if (e === activeBigBoss) {
+                activeBigBoss = null;
+                updateBossBar();
+                showBanner("COLOSSUS DEFEATED! +50 BONUS MATERIALS");
+                state.materials += 50;
+              }
+              scene.remove(e.mesh);
+              enemies.splice(j, 1);
+              state.kills++;
+            }
+            break;
+          }
+        }
+
+        if (hit || b.life <= 0) {
+          scene.remove(b.mesh);
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Update Enemy Bullets
+      for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        const eb = enemyBullets[i];
+        eb.mesh.position.addScaledVector(eb.dir, eb.speed);
+        eb.life -= dt;
+
+        if (eb.mesh.position.distanceTo(playerGroup.position) < 1.2) {
+          takeDamage(eb.dmg);
+          scene.remove(eb.mesh);
+          enemyBullets.splice(i, 1);
+          continue;
+        }
+
+        if (eb.life <= 0) {
+          scene.remove(eb.mesh);
+          enemyBullets.splice(i, 1);
+        }
+      }
+
+      // Update Enemies & Boss AI
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const distToPlayer = e.mesh.position.distanceTo(playerGroup.position);
+        const toPlayer = new THREE.Vector3().subVectors(playerGroup.position, e.mesh.position).setY(0).normalize();
+
+        if (e.type === 'bigboss') {
+          e.mesh.rotation.y += 0.02;
+          e.mesh.rotation.x += 0.01;
+          e.mesh.position.addScaledVector(toPlayer, e.speed);
+
+          // Spiral Bullet Hell Attack
+          e.shootTimer += dt;
+          if (e.shootTimer >= 0.28) {
+            e.shootTimer = 0;
+            e.spiralAngle += 0.45;
+            for (let k = 0; k < 2; k++) {
+              const ang = e.spiralAngle + (k * Math.PI);
+              const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+              shootEnemyBullet(e.mesh.position, dir, 0.26, 18, true);
+            }
+          }
+
+          // Summon Minions Periodically
+          e.summonTimer += dt;
+          if (e.summonTimer >= 6.5) {
+            e.summonTimer = 0;
+            spawnHordeCluster();
+          }
+        } else if (e.type === 'miniboss') {
+          e.mesh.rotation.y += 0.04;
+          e.mesh.position.addScaledVector(toPlayer, e.speed);
+
+          // 5-Way Spread Shot
+          e.shootTimer += dt;
+          if (e.shootTimer >= 2.1) {
+            e.shootTimer = 0;
+            const baseAngle = Math.atan2(toPlayer.z, toPlayer.x);
+            for (let spread = -2; spread <= 2; spread++) {
+              const ang = baseAngle + spread * 0.22;
+              const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+              shootEnemyBullet(e.mesh.position, dir, 0.30, 16, true);
+            }
+          }
+        } else if (e.type === 'charger') {
+          if (e.chargeDuration > 0) {
+            e.chargeDuration -= dt;
+            e.mesh.position.addScaledVector(e.chargeDir, 0.44);
+          } else {
+            e.mesh.position.addScaledVector(toPlayer, e.speed);
+            e.chargeTimer -= dt;
+            if (e.chargeTimer <= 0 && distToPlayer < 22) {
+              e.chargeDir = toPlayer.clone();
+              e.chargeDuration = 0.65;
+              e.chargeTimer = 2.8;
+            }
+          }
+        } else if (e.type === 'ranged' && distToPlayer < 16) {
+          e.shootTimer += dt;
+          if (e.shootTimer >= 2.0) {
+            e.shootTimer = 0;
+            shootEnemyBullet(e.mesh.position, toPlayer, 0.32, e.damage, false);
+          }
+        } else {
+          e.mesh.position.addScaledVector(toPlayer, e.speed);
+        }
+
+        // Keep inside arena bounds
+        e.mesh.position.x = Math.max(-ARENA_SIZE + e.radius, Math.min(ARENA_SIZE - e.radius, e.mesh.position.x));
+        e.mesh.position.z = Math.max(-ARENA_SIZE + e.radius, Math.min(ARENA_SIZE - e.radius, e.mesh.position.z));
+
+        // Enemy separation
+        for (let j = i - 1; j >= Math.max(0, i - 12); j--) {
+          const other = enemies[j];
+          const dx = e.mesh.position.x - other.mesh.position.x;
+          const dz = e.mesh.position.z - other.mesh.position.z;
+          const dSq = dx * dx + dz * dz;
+          const minSep = e.radius + other.radius;
+          if (dSq > 0.001 && dSq < minSep * minSep) {
+            e.mesh.position.x += dx * 0.04;
+            e.mesh.position.z += dz * 0.04;
+          }
+        }
+
+        // Melee Damage to Player
+        if (distToPlayer < e.radius + 1.0) {
+          takeDamage(e.damage * dt * 2.5);
+        }
+      }
+
+      // Collect Gems
+      for (let i = gems.length - 1; i >= 0; i--) {
+        const g = gems[i];
+        g.mesh.rotation.y += 0.06;
+        const dist = g.mesh.position.distanceTo(playerGroup.position);
+
+        if (dist < state.pickupRange) {
+          const pull = new THREE.Vector3().subVectors(playerGroup.position, g.mesh.position).setY(0).normalize();
+          g.mesh.position.addScaledVector(pull, 0.35);
+        }
+
+        if (dist < 1.5) {
+          state.materials += g.val;
+          state.xp += g.val;
+          scene.remove(g.mesh);
+          gems.splice(i, 1);
+
+          if (state.xp >= state.xpToNext) {
+            state.xp -= state.xpToNext;
+            state.level++;
+            state.xpToNext = Math.floor(state.xpToNext * 1.4);
+            updateHUD();
+            triggerLevelUp();
+            return;
+          }
+        }
+      }
+
+      updateHUD();
+      renderer.render(scene, camera);
+    }
+
+    function checkGameOver() {
+      if (state.hp <= 0 && !state.gameOver) {
+        state.hp = 0;
+        state.gameOver = true;
+        updateHUD();
+        document.getElementById('gameover-screen').style.display = 'flex';
+        document.getElementById('final-stats').innerText = `Level ${state.level} | Nightmare Wave ${state.wave} | Total Kills: ${state.kills}`;
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    updateHUD();
+    animate(performance.now());
+  </script>
+</body>
+</html>
